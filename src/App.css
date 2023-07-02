@@ -1,26 +1,20 @@
-.pdf-container {
-  display: flex;
+.main {
+  background: rgb(255, 255, 191);
+  width: 70vw;
+  position: relative;
+  left: 15vw;
+  padding: 20px;
 }
 
-.guided-reading-container {
-  flex: 1;
-  margin-left: 20px;
-  overflow: hidden;
+.text {
+  color: rgb(0, 0, 0);
+  font-size: 20px;
+  line-height: 2.5rem;
 }
 
-
-
-.guided-reading-sentence {
-  margin: 0;
-  padding: 0.2em 0;
-  opacity: 0.3;
-  transition: opacity 0.3s ease;
-}
-
-.guided-reading-sentence.active {
-  opacity: 1;
-}
-
-button {
-  margin-top: 20px;
+.cq {
+  color: rgb(0, 0, 0);
+  font-size: 20px;
+  font-weight: bold;
+  line-height: 1rem;
 }

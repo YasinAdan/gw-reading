@@ -1,110 +1,88 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Document, Page, pdfjs } from 'react-pdf';
+import React, { useState } from 'react';
+import { pdfjs } from 'react-pdf';
 import './App.css';
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`;
 
 function App() {
+  const [file, setFile] = useState(null);
   const [pdfText, setPdfText] = useState('');
-  const [numPages, setNumPages] = useState(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const guidedReadingRef = useRef(null);
-  const [scrollIntervalId, setScrollIntervalId] = useState(null);
-
-  useEffect(() => {
-    // Fetch the PDF text content here if needed
-    // You can update this logic based on your requirements
-  }, []);
-
-  useEffect(() => {
-    if (guidedReadingRef.current) {
-      const interval = setInterval(() => {
-        setCurrentPage((prevPage) => {
-          const nextPage = prevPage + 1;
-          if (nextPage > numPages) {
-            clearInterval(interval);
-          }
-          return nextPage;
-        });
-      }, 3000); // Adjust the scrolling speed as needed
-
-      setScrollIntervalId(interval);
-    }
-
-    return () => {
-      clearInterval(scrollIntervalId);
-    };
-  }, [numPages]);
 
   const handleFileUpload = async (event) => {
-    const file = event.target.files[0];
-    const fileUrl = URL.createObjectURL(file);
+    const selectedFile = event.target.files[0];
+    const fileReader = new FileReader();
 
-    const loadingTask = pdfjs.getDocument(fileUrl);
-
-    loadingTask.promise.then((doc) => {
+    fileReader.onload = async () => {
+      const typedArray = new Uint8Array(fileReader.result);
+      const pdf = await pdfjs.getDocument(typedArray).promise;
+      const numPages = pdf.numPages;
       let text = '';
-      const numPages = doc.numPages;
 
-      const getPageText = (pageNum) => {
-        return doc.getPage(pageNum).then((page) => {
-          return page.getTextContent().then((content) => {
-            const pageText = content.items
-              .map((item) => item.str)
-              .join(' ')
-              .trim();
-            return pageText;
-          });
-        });
-      };
-
-      const promises = [];
       for (let i = 1; i <= numPages; i++) {
-        promises.push(getPageText(i));
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        const pageText = content.items.map((item) => item.str).join('');
+        text += pageText + ' ';
       }
 
-      Promise.all(promises).then((texts) => {
-        text = texts.join(' ');
-        setPdfText(text);
-        setNumPages(numPages);
-        setCurrentPage(1);
-      });
-    });
+      setFile(selectedFile);
+      setPdfText(text);
+    };
+
+    fileReader.readAsArrayBuffer(selectedFile);
   };
 
-  const renderGuidedReading = () => {
-    if (!pdfText) {
-      return null;
-    }
-
-    const guidedText = pdfText.split('. ');
-
+  const highlightHalfWord = (word) => {
+    const halfIndex = Math.ceil(word.length / 2);
+    const firstHalf = word.substr(0, halfIndex);
+    const secondHalf = word.substr(halfIndex);
     return (
-      <div className="guided-reading-container">
-        <div ref={guidedReadingRef} className="guided-reading-window">
-          {guidedText.map((sentence, index) => {
-            const isActive = index + 1 === currentPage;
-
-            return (
-              <p key={index} className={`guided-reading-sentence ${isActive ? 'active' : ''}`}>
-                {sentence}
-              </p>
-            );
-          })}
-        </div>
-      </div>
+      <span>
+        <b>{firstHalf}</b>
+        {secondHalf}
+      </span>
     );
   };
 
+  const isChapterStart = (word) => {
+    // You can customize this logic to determine if a word is the start of a new chapter
+    return word.startsWith('CHAPTER');
+  };
+
+  const isQuote = (word) => {
+    // You can customize this logic to determine if a word is a quote
+    return word.startsWith('"') || word.endsWith('"');
+  };
+
+
+  const splitIntoWords = (text) => {
+    const words = text.split(/\b/);
+    return words.filter((word) => word.trim() !== '');
+  };
+
   return (
-    <div>
+    <div className="main">
       <input type="file" onChange={handleFileUpload} />
-      {numPages && (
-        <div className="pdf-container">
-          <Document file={pdfText}>
-            <Page pageNumber={currentPage} />
-          </Document>
-          {renderGuidedReading()}
+      {pdfText && (
+        <div className="highlighted-text">
+          {splitIntoWords(pdfText).map((word, index) => {
+            if (word === '') {
+              return <br key={index} />;
+            } else if (isChapterStart(word) || isQuote(word)) {
+              return (
+                <React.Fragment key={index}>
+                  <br />
+                  <span className="text">{highlightHalfWord(word)} </span>
+                </React.Fragment>
+              );
+            } else {
+              return (
+                <span key={index} className="text">
+                  {highlightHalfWord(word)}{' '}
+                </span>
+              );
+            }
+          })}
         </div>
       )}
     </div>
